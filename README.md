@@ -20,44 +20,6 @@ License: GPLv3
                             set aliases as a python dictionary
 
 
-
-# Another XML to CSV converter
-Converting a tree to a table is not a trivial task. There are a few XML to CSV 
-converters around, but I found no clear alogorithm on the internet, hence I 
-created my own.
-
-This converter is built upon the following algorithm.
-
-First, use a DFS to store every path to a text node or an attribute. Add a path
-to a mock attribute `#num` of every node. These are the columns. (Actually, 
-I use two successive DFS : one to reduce the tree, the other to make
-the traversal.)
-
-Second, use a BFS to order nodes from bottom to top of the tree, the root 
-being the last node. Store only nodes that are non terminal, ie with children
-and/or attributes.
-
-Third, "flatten" the tree from the bottom to the top. 
-
-For each node, group the children by tag name. 
-
-At the bottom level, two children having the same tag name 
-(or an alias) are on two different rows, two children having different tag 
-names are on the same row (each tag has his own column). If there are 
-multiple tag names that are present more than once, a cartesian product is 
-performed (use aliases to avoid cartesian product).
-
-The attributes are then added, to build a small table associated to the node.
-
-At every higher level, rows are build the same way, but those small tables are put side
-by side (different tag) or stacked (same tag).
-
-When the root is reached, the table is built.
-
-This algorithm is not fast no memory efficient (improvements are welcome), 
-but it is relatively easy to understand. 
-
-
 # Example
 This is the example from Python [xml.etree.ElementTree official doc](
 https://docs.python.org/3/library/xml.etree.elementtree.html#parsing-xml) 
@@ -96,3 +58,53 @@ https://docs.python.org/3/library/xml.etree.elementtree.html#parsing-xml)
     0	1	Singapore	0	4	0	2011	0	59900	0	Malaysia	N
     0	2	Panama	0	68	0	2011	0	13600	0	Costa Rica	W
     0	2	Panama	0	68	0	2011	0	13600	1	Colombia	E
+
+# Another XML to CSV converter algorithm
+Converting a tree to a table is not a trivial task. There are a few XML to CSV 
+converters around, but I found no clear alogorithm on the internet, hence I 
+created my own.
+
+This converter is built upon the following algorithm.
+
+## Step 1
+First, use a DFS to store every path to a text node or an attribute. Add a path
+to a mock attribute `#num` of every node. These are the columns. (Actually, 
+I use two successive DFS : one to reduce the tree, the other to make
+the traversal.)
+
+## Step 2
+Second, use a BFS to order nodes from bottom to top of the tree, the root 
+being the last node. Store only nodes that are non terminal, ie with children
+and/or attributes.
+
+## Step 3
+Third, "flatten" the tree from the bottom to the top. 
+
+For each node, group the children by tag name. 
+
+At the bottom level, two children having the same tag name 
+(or an alias) are on two different rows, two children having different tag 
+names are on the same row (each tag has his own column). If there are 
+multiple tag names that are present more than once, a cartesian product is 
+performed (use aliases to avoid cartesian product).
+
+The attributes are then added, to build a small table associated to the node.
+
+At every higher level, rows are build the same way, but those small tables are put side
+by side (different tag) or stacked (same tag).
+
+When the root is reached, the table is built.
+
+This algorithm is not fast nor memory efficient (improvements are welcome), 
+but it is relatively easy to understand. 
+
+## Typical conversions
+
+| in  | out | remark |
+| --- | --- | ------ |
+| `- root`<br>`--- foo`<br>`--- bar`<br>`--- baz` | `root  foo  bar  baz`| different tags on different columns
+| `- root`<br>`--- foo1`<br>`--- foo2`<br>`--- bar` | `root  foo1  bar`<br>`root  foo2 bar` | same tags are stacked
+| `- root`<br>`--- foo1`<br>`--- foo2`<br>`--- bar1`<br>`--- bar2` | `root  foo1  bar1`<br>`root  foo1 bar2`<br>`root  foo2  bar1`<br>`root  foo2 bar2` | cartesian product |
+| `> aliases={'bar': 'foo'}`<br>`- root`<br>`--- foo1`<br>`--- foo2`<br>`--- bar` | `root  foo1`<br>`root  foo2`<br>`root`&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`bar` | aliases are stacked (no product)
+| `- root`<br>`--- foo`<br>`----- bar1`<br>`----- bar2`<br>`----- baz1`<br>`--- oof`<br>`----- baz1` | `root ( foo  bar1 baz1 ) oof baz2`<br>`root ( foo bar2 baz1 ) oof baz2` | first, evaluate `foo`, then apply the rules to the subtable |
+
