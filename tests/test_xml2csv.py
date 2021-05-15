@@ -21,7 +21,8 @@ import unittest
 import xml.etree.ElementTree as ET
 from io import StringIO
 
-from src.xml2csv import Flattener, get_parser
+from xml2csv.xml2csv import get_parser
+from xml2csv.dom import ProductFlattener
 
 
 class TestXML2CSV(unittest.TestCase):
@@ -32,11 +33,11 @@ class TestXML2CSV(unittest.TestCase):
     <cell>B1</cell>
 </row>
         """)
-        flattener = Flattener(root)
+        flattener = ProductFlattener(root, number_cols=True)
         self.assertEqual(
-            [['row.#num', 'row.cell.#num', 'row.cell.@style', 'row.cell._text'],
+            [['row.#num', 'row.cell.#num', 'row.cell.@style', 'row.cell.^text'],
              [0, 0, 's', 'A1'],
-             [0, 1, None, 'B1']], list(flattener.flatten()))
+             [0, 1, '', 'B1']], list(flattener.flatten()))
 
     def test_two_rows(self):
         root = ET.fromstring("""
@@ -51,22 +52,22 @@ class TestXML2CSV(unittest.TestCase):
             <cell>B2</cell>
         </row>
     </data>""")
-        flattener = Flattener(root)
+        flattener = ProductFlattener(root, number_cols=True)
         self.assertEqual(
             [['data.#num',
-              'data.@n',
               'data.@m',
+              'data.@n',
               'data.row.#num',
               'data.row.rowinfo.#num',
               'data.row.rowinfo.@type',
               'data.row.cell.#num',
+              'data.row.cell.@otherstyle',
               'data.row.cell.@style',
-              'data.row.cell._text',
-              'data.row.cell.@otherstyle'],
-             [0, '1', '2', 0, 0, 'long', 0, 's', 'A1', None],
-             [0, '1', '2', 0, 0, 'long', 1, None, 'B1', None],
-             [0, '1', '2', 1, None, None, 0, None, 'A2', 's2'],
-             [0, '1', '2', 1, None, None, 1, None, 'B2', None]],
+              'data.row.cell.^text'],
+             [0, '2', '1', 0, 0, 'long', 0, '', 's', 'A1'],
+             [0, '2', '1', 0, 0, 'long', 1, '', '', 'B1'],
+             [0, '2', '1', 1, '', '', 0, 's2', '', 'A2'],
+             [0, '2', '1', 1, '', '', 1, '', '', 'B2']],
             list(flattener.flatten()))
 
     def test_product(self):
@@ -76,13 +77,13 @@ class TestXML2CSV(unittest.TestCase):
     <cell>A2</cell>
     <cell>B2</cell>
 </row>""")
-        flattener = Flattener(root)
+        flattener = ProductFlattener(root, number_cols=True)
         self.assertEqual(
             [['row.#num',
               'row.column.#num',
               'row.column.@style',
               'row.cell.#num',
-              'row.cell._text'],
+              'row.cell.^text'],
              [0, 0, 's', 0, 'A2'],
              [0, 0, 's', 1, 'B2'],
              [0, 1, 't', 0, 'A2'],
@@ -97,18 +98,18 @@ class TestXML2CSV(unittest.TestCase):
             <covered-cell>D1</covered-cell>
         </row>
                 """)
-        flattener = Flattener(root, aliases={"covered-cell": "cell"})
+        flattener = ProductFlattener(root, number_cols=True, aliases={"covered-cell": "cell"})
         self.assertEqual(
             [['row.#num',
               'row.cell.#num',
-              'row.cell._text',
               'row.cell.@cover',
+              'row.cell.^text',
               'row.covered-cell.#num',
-              'row.covered-cell._text'],
-             [0, 0, 'A1', None, None, None],
-             [0, 1, 'B1', '3', None, None],
-             [0, None, None, None, 0, 'C1'],
-             [0, None, None, None, 1, 'D1']], list(flattener.flatten()))
+              'row.covered-cell.^text'],
+             [0, 0, '', 'A1', '', ''],
+             [0, 1, '3', 'B1', '', ''],
+             [0, '', '', '', 0, 'C1'],
+             [0, '', '', '', 1, 'D1']], list(flattener.flatten()))
 
     def test_elementree_module_example(self):
         root = ET.fromstring("""<?xml version="1.0"?>
@@ -134,30 +135,30 @@ class TestXML2CSV(unittest.TestCase):
                 <neighbor name="Colombia" direction="E"/>
             </country>
         </data>""")
-        flattener = Flattener(root)
+        flattener = ProductFlattener(root, number_cols=True)
         self.assertEqual(
             [['data.#num',
               'data.country.#num',
               'data.country.@name',
               'data.country.rank.#num',
-              'data.country.rank._text',
+              'data.country.rank.^text',
               'data.country.year.#num',
-              'data.country.year._text',
+              'data.country.year.^text',
               'data.country.gdppc.#num',
-              'data.country.gdppc._text',
+              'data.country.gdppc.^text',
               'data.country.neighbor.#num',
-              'data.country.neighbor.@name',
-              'data.country.neighbor.@direction'],
+              'data.country.neighbor.@direction',
+              'data.country.neighbor.@name'],
              [0, 0, 'Liechtenstein', 0, '1', 0, '2008', 0, '141100', 0,
-              'Austria', 'E'],
+              'E', 'Austria'],
              [0, 0, 'Liechtenstein', 0, '1', 0, '2008', 0, '141100', 1,
-              'Switzerland', 'W'],
-             [0, 1, 'Singapore', 0, '4', 0, '2011', 0, '59900', 0, 'Malaysia',
-              'N'],
-             [0, 2, 'Panama', 0, '68', 0, '2011', 0, '13600', 0, 'Costa Rica',
-              'W'],
-             [0, 2, 'Panama', 0, '68', 0, '2011', 0, '13600', 1, 'Colombia',
-              'E']],
+              'W', 'Switzerland'],
+             [0, 1, 'Singapore', 0, '4', 0, '2011', 0, '59900', 0, 'N',
+              'Malaysia'],
+             [0, 2, 'Panama', 0, '68', 0, '2011', 0, '13600', 0, 'W',
+              'Costa Rica'],
+             [0, 2, 'Panama', 0, '68', 0, '2011', 0, '13600', 1, 'E',
+              'Colombia']],
             list(flattener.flatten()))
 
     def test_elementree_module_example_short_names(self):
@@ -184,30 +185,30 @@ class TestXML2CSV(unittest.TestCase):
                 <neighbor name="Colombia" direction="E"/>
             </country>
         </data>""")
-        flattener = Flattener(root, short_names=True)
+        flattener = ProductFlattener(root, short_names=True, number_cols=True)
         self.assertEqual(
             [['data.#num',
               'country.#num',
               'country.@name',
               'rank.#num',
-              'rank._text',
+              'rank.^text',
               'year.#num',
-              'year._text',
+              'year.^text',
               'gdppc.#num',
-              'gdppc._text',
+              'gdppc.^text',
               'neighbor.#num',
-              'neighbor.@name',
-              'neighbor.@direction'],
+              'neighbor.@direction',
+              'neighbor.@name'],
              [0, 0, 'Liechtenstein', 0, '1', 0, '2008', 0, '141100', 0,
-              'Austria', 'E'],
+              'E', 'Austria'],
              [0, 0, 'Liechtenstein', 0, '1', 0, '2008', 0, '141100', 1,
-              'Switzerland', 'W'],
-             [0, 1, 'Singapore', 0, '4', 0, '2011', 0, '59900', 0, 'Malaysia',
-              'N'],
-             [0, 2, 'Panama', 0, '68', 0, '2011', 0, '13600', 0, 'Costa Rica',
-              'W'],
-             [0, 2, 'Panama', 0, '68', 0, '2011', 0, '13600', 1, 'Colombia',
-              'E']],
+              'W', 'Switzerland'],
+             [0, 1, 'Singapore', 0, '4', 0, '2011', 0, '59900', 0, 'N',
+              'Malaysia'],
+             [0, 2, 'Panama', 0, '68', 0, '2011', 0, '13600', 0, 'W',
+              'Costa Rica'],
+             [0, 2, 'Panama', 0, '68', 0, '2011', 0, '13600', 1, 'E',
+              'Colombia']],
             list(flattener.flatten()))
 
 
