@@ -112,7 +112,7 @@ Another XML to CSV implements an alternative algorithm, called "all sibling
 are aliases". The first step is identical to the main algorithm : a DFS to
 find columns.
 
-The second step is simple: for each know, we store terminal 
+The second step is simple: we store terminal 
 children of each node. If there is one terminal child for a tag, this
 child is processed as an attribute. If there are many terminal children
 for a tag, these children are written to the output, one row per child. 
